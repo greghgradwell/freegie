@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freegie</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.8.1/nouislider.min.css">
+</head>
+<body>
+    <header>
+        <h1>Freegie</h1>
+        <span class="phase-badge" id="phase-badge">idle</span>
+    </header>
+
+    <main class="dashboard">
+        <!-- Left Column: Battery + Charge Range -->
+        <div class="column-left">
+            <div class="card battery-card">
+                <div class="battery-ring-container">
+                    <svg class="battery-ring" viewBox="0 0 200 200">
+                        <circle class="ring-bg" cx="100" cy="100" r="85" />
+                        <circle class="ring-fill" id="ring-fill" cx="100" cy="100" r="85" />
+                    </svg>
+                    <div class="battery-center">
+                        <div class="battery-percent" id="battery-percent">--</div>
+                        <div class="battery-label">battery</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Charge Range</h2>
+                <div class="range-labels">
+                    <div class="range-label-group">
+                        <span class="range-label-title">Min</span>
+                        <span class="range-label-value" id="min-label">75%</span>
+                    </div>
+                    <div class="range-label-group">
+                        <span class="range-label-title">Max</span>
+                        <span class="range-label-value" id="max-label">80%</span>
+                    </div>
+                </div>
+                <div id="charge-slider"></div>
+                <div class="range-bounds">
+                    <span>20%</span>
+                    <span>100%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Connection, Telemetry, Settings, Device -->
+        <div class="column-right">
+            <div class="card">
+                <h2>Connection</h2>
+                <div class="connection-row">
+                    <span class="status-dot" id="status-dot"></span>
+                    <span id="connection-text">Idle</span>
+                </div>
+                <div class="button-row">
+                    <button class="action-btn" id="btn-scan">Scan</button>
+                    <button class="action-btn danger" id="btn-disconnect">Disconnect</button>
+                    <button class="action-btn danger" id="btn-stop">Stop Daemon</button>
+                </div>
+                <div class="override-row" id="override-row" style="display:none">
+                    <span class="setting-label">Charge Control</span>
+                    <div class="override-toggle">
+                        <button class="mode-btn" id="ovr-on">Force On</button>
+                        <button class="mode-btn active" id="ovr-auto">Auto</button>
+                        <button class="mode-btn" id="ovr-off">Force Off</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" id="telemetry-card" style="display:none">
+                <div class="card-header">
+                    <h2>Power Metrics</h2>
+                    <button class="action-btn" id="btn-poll">Refresh</button>
+                </div>
+                <div class="metrics-row">
+                    <div class="metric-box">
+                        <div class="metric-value" id="metric-volts">--</div>
+                        <div class="metric-unit">V</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-value" id="metric-amps">--</div>
+                        <div class="metric-unit">A</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-value" id="metric-watts">--</div>
+                        <div class="metric-unit">W</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Settings</h2>
+                <div class="setting-row">
+                    <span class="setting-label">Telemetry Interval</span>
+                    <div class="setting-controls">
+                        <button class="control-btn small" id="telem-minus">-</button>
+                        <span id="telem-value">30</span><span>s</span>
+                        <button class="control-btn small" id="telem-plus">+</button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">PD Mode</span>
+                    <div class="setting-controls">
+                        <button class="mode-btn" id="pd-mode-1">Half Power</button>
+                        <button class="mode-btn active" id="pd-mode-2">Full Power</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" id="device-card" style="display:none">
+                <h2>Device</h2>
+                <div class="device-info">
+                    <div class="info-row"><span class="info-label">Name</span><span id="device-name">--</span></div>
+                    <div class="info-row"><span class="info-label">Firmware</span><span id="device-fw">--</span></div>
+                    <div class="info-row"><span class="info-label">Hardware</span><span id="device-hw">--</span></div>
+                    <div class="info-row"><span class="info-label">PD</span><span id="device-pd">--</span></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.8.1/nouislider.min.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>

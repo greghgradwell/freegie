@@ -1,4 +1,4 @@
-"""Configuration loading from TOML files."""
+"""Configuration loading from TOML files, with persistent user state."""
 
 import logging
 import tomllib
@@ -8,20 +8,28 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 _USER_CONFIG = Path.home() / ".config" / "freegie" / "config.toml"
 _SYSTEM_CONFIG = Path("/etc/freegie/config.toml")
+_STATE_FILE = Path.home() / ".config" / "freegie" / "state.toml"
 
 
 @dataclass
 class ChargeConfig:
-    limit: int = 80
-    allowed_drop: int = 5
+    charge_max: int = 80
+    charge_min: int = 75
     pd_mode: int = 2
     poll_interval: int = 3
+    telemetry_interval: int = 30
+    auto_reconnect: bool = True
 
     def __post_init__(self):
-        if not 20 <= self.limit <= 100:
-            raise ValueError(f"charge.limit must be 20-100, got {self.limit}")
-        if not 1 <= self.allowed_drop <= 20:
-            raise ValueError(f"charge.allowed_drop must be 1-20, got {self.allowed_drop}")
+        if not 20 <= self.charge_max <= 100:
+            raise ValueError(f"charge.charge_max must be 20-100, got {self.charge_max}")
+        if not 20 <= self.charge_min <= 100:
+            raise ValueError(f"charge.charge_min must be 20-100, got {self.charge_min}")
+        if self.charge_min >= self.charge_max:
+            raise ValueError(
+                f"charge.charge_min ({self.charge_min}) must be less than "
+                f"charge.charge_max ({self.charge_max})"
+            )
         if self.pd_mode not in (1, 2):
             raise ValueError(f"charge.pd_mode must be 1 or 2, got {self.pd_mode}")
 
@@ -71,3 +79,42 @@ def _parse(data: dict) -> Config:
         daemon=DaemonConfig(**daemon_data),
         tray=TrayConfig(**tray_data),
     )
+
+
+def load_state(config: Config, path: Path = _STATE_FILE) -> Config:
+    if not path.is_file():
+        return config
+
+    try:
+        data = tomllib.loads(path.read_bytes().decode())
+    except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError) as e:
+        log.warning("Failed to read state file %s: %s", path, e)
+        return config
+
+    charge_min = data.get("charge_min", config.charge.charge_min)
+    charge_max = data.get("charge_max", config.charge.charge_max)
+    telemetry_interval = data.get("telemetry_interval", config.charge.telemetry_interval)
+
+    try:
+        config.charge = ChargeConfig(
+            charge_max=charge_max,
+            charge_min=charge_min,
+            pd_mode=config.charge.pd_mode,
+            poll_interval=config.charge.poll_interval,
+            telemetry_interval=telemetry_interval,
+            auto_reconnect=config.charge.auto_reconnect,
+        )
+    except ValueError as e:
+        log.warning("Ignoring invalid saved state: %s", e)
+
+    return config
+
+
+def save_state(charge_max: int, charge_min: int, telemetry_interval: int = 30, path: Path = _STATE_FILE):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    content = (
+        f"charge_max = {charge_max}\n"
+        f"charge_min = {charge_min}\n"
+        f"telemetry_interval = {telemetry_interval}\n"
+    )
+    path.write_text(content)

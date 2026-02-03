@@ -87,12 +87,14 @@ def run_tray(daemon_url: str = DEFAULT_DAEMON_URL):
         if status:
             phase = status.get("phase", "unknown")
             pct = status.get("battery_percent")
-            limit = status.get("charge_limit")
+            charge_max = status.get("charge_max")
+            charge_min = status.get("charge_min")
             charging = status.get("is_charging", False)
 
             status_label = f"Battery: {pct}%" if pct is not None else "Battery: --"
             phase_label = f"Phase: {phase}"
-            limit_label = f"Limit: {limit}%"
+            max_label = f"Charge Max: {charge_max}%"
+            min_label = f"Charge Min: {charge_min}%"
             charging_label = "Charging" if charging else "Not charging"
 
             device = status.get("device")
@@ -100,7 +102,8 @@ def run_tray(daemon_url: str = DEFAULT_DAEMON_URL):
         else:
             status_label = "Daemon not reachable"
             phase_label = ""
-            limit_label = ""
+            max_label = ""
+            min_label = ""
             charging_label = ""
             device_label = ""
 
@@ -111,7 +114,8 @@ def run_tray(daemon_url: str = DEFAULT_DAEMON_URL):
             items.extend([
                 pystray.MenuItem(charging_label, None, enabled=False),
                 pystray.MenuItem(phase_label, None, enabled=False),
-                pystray.MenuItem(limit_label, None, enabled=False),
+                pystray.MenuItem(max_label, None, enabled=False),
+                pystray.MenuItem(min_label, None, enabled=False),
                 pystray.MenuItem(device_label, None, enabled=False),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Open Web UI", lambda: webbrowser.open(daemon_url)),

@@ -67,20 +67,22 @@ Core charge management logic. Pure logic, no I/O (depends on BLE manager and bat
 
 **State machine:**
 ```
-IDLE -> SCANNING -> CONNECTING -> VERIFYING -> CONTROLLING -> DISCONNECTED
-                                                    │                │
-                                                    └── PAUSED ◄─────┘
-                                                    (limit reached)
+IDLE -> SCANNING -> CONNECTING -> VERIFYING -> CONTROLLING <-> PAUSED
+                                                    │              │
+                                                    └── DISCONNECTED
+                                                           │
+                                                    RECONNECTING -> CONTROLLING
 ```
+See [STATE_MACHINE.md](STATE_MACHINE.md) for the full diagram with invariants.
 
 **Charge control logic:**
 ```python
-if battery_percent >= charge_limit:
-    send(AT+PIO20)  # cut power
+if battery_percent >= charge_max:
+    _power_off()     # AT+PIO20 + verify response
     state = PAUSED
 
-if state == PAUSED and battery_percent <= (charge_limit - allowed_charge_drop):
-    send(AT+PIO21)  # restore power
+if state == PAUSED and battery_percent <= charge_min:
+    _power_on()      # AT+PIO21 + verify response
     state = CONTROLLING
 ```
 
@@ -110,8 +112,9 @@ Local API server using `aiohttp`. Serves both the REST API and the web UI static
   "data": {
     "battery_percent": 72,
     "is_charging": true,
-    "charge_limit": 83,
-    "connection_state": "controlling",
+    "charge_max": 83,
+    "charge_min": 75,
+    "phase": "controlling",
     "telemetry": {"volts": 4.24, "amps": 15.0, "watts": 63.6},
     "device": {"name": "Chargie Laptops", "firmware": "10", "hardware": "3.00"}
   }
@@ -136,8 +139,8 @@ Thin HTTP client for the daemon API.
 
 ```
 freegie status          # Show connection state, battery, telemetry
-freegie set-limit 80    # Change charge limit
-freegie set-pd-mode 2   # Change PD mode
+freegie set-max 80      # Change charge max
+freegie set-min 75      # Change charge min
 freegie scan            # Trigger BLE scan
 freegie disconnect      # Disconnect from device
 ```
@@ -160,10 +163,11 @@ File: `/etc/freegie/config.toml` (system-wide) or `~/.config/freegie/config.toml
 
 ```toml
 [charge]
-limit = 83
-allowed_drop = 5
-pd_mode = 2         # 1=Basic 5V, 2=Full PD
-poll_interval = 3   # seconds between AT+STAT queries
+charge_max = 83
+charge_min = 75
+pd_mode = 2            # 1=Half PD, 2=Full PD
+poll_interval = 3      # seconds between sysfs checks
+telemetry_interval = 30  # seconds between BLE AT+STAT queries
 
 [daemon]
 port = 7380
@@ -185,15 +189,15 @@ freegie/
   ble.py             # BLE Manager (scan, connect, command queue)
   engine.py          # Charge Engine (state machine, limit enforcement, polling)
   server.py          # HTTP/WS API server (aiohttp)
-  tray.py            # System tray icon (not yet implemented)
-  cli.py             # CLI tool (not yet implemented)
-  static/            # Web UI files (not yet implemented)
+  tray.py            # System tray icon (pystray client)
+  cli.py             # CLI tool (HTTP client)
+  static/            # Web UI files
 tests/
-  test_protocol.py   # 29 tests — AT response parsing
-  test_battery.py    # 11 tests — sysfs reading with fake fs
-  test_config.py     #  9 tests — TOML loading and validation
-  test_ble.py        # 16 tests — scan filter, response key matching
-  test_engine.py     # 13 tests — state machine, charge enforcement
+  test_protocol.py   # AT response parsing
+  test_battery.py    # sysfs reading with fake fs
+  test_config.py     # TOML loading and validation
+  test_ble.py        # scan filter, response key matching
+  test_engine.py     # state machine, charge enforcement
 docs/
   SPEC.md            # Product requirements
   DESIGN.md          # This file

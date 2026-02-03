@@ -1,0 +1,472 @@
+:root {
+    --primary: #007AFF;
+    --success: #34C759;
+    --danger: #FF3B30;
+    --warning: #FF9500;
+    --bg: #1C1C1E;
+    --surface: #2C2C2E;
+    --surface-hover: #3A3A3C;
+    --text: #FFFFFF;
+    --text-secondary: #8E8E93;
+    --border: #48484A;
+    --ring-bg: #3A3A3C;
+    --radius: 12px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding: 0 4px;
+}
+
+header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.phase-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: var(--surface);
+    color: var(--text-secondary);
+}
+
+.phase-badge.controlling,
+.phase-badge.paused {
+    background: rgba(52, 199, 89, 0.15);
+    color: var(--success);
+}
+
+.phase-badge.scanning,
+.phase-badge.connecting,
+.phase-badge.verifying {
+    background: rgba(0, 122, 255, 0.15);
+    color: var(--primary);
+}
+
+.phase-badge.reconnecting {
+    background: rgba(255, 149, 0, 0.15);
+    color: var(--warning);
+}
+
+.phase-badge.disconnected {
+    background: rgba(255, 59, 48, 0.15);
+    color: var(--danger);
+}
+
+/* Dashboard Grid */
+.dashboard {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+@media (max-width: 640px) {
+    .dashboard {
+        grid-template-columns: 1fr;
+    }
+}
+
+.column-left,
+.column-right {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Card */
+.card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 20px;
+    border: 1px solid var(--border);
+}
+
+.card h2 {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.card-header h2 {
+    margin-bottom: 0;
+}
+
+.card-header .action-btn {
+    flex: none;
+    padding: 4px 12px;
+    font-size: 0.75rem;
+}
+
+/* Battery Ring */
+.battery-card {
+    display: flex;
+    justify-content: center;
+    padding: 30px 20px;
+}
+
+.battery-ring-container {
+    position: relative;
+    width: 180px;
+    height: 180px;
+}
+
+.battery-ring {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.ring-bg {
+    fill: none;
+    stroke: var(--ring-bg);
+    stroke-width: 10;
+}
+
+.ring-fill {
+    fill: none;
+    stroke: var(--primary);
+    stroke-width: 10;
+    stroke-linecap: round;
+    stroke-dasharray: 534.07;
+    stroke-dashoffset: 534.07;
+    transition: stroke-dashoffset 0.6s ease, stroke 0.3s ease;
+}
+
+.battery-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+.battery-percent {
+    font-size: 2.4rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.battery-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+/* Charge Range Slider (noUiSlider) */
+.range-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.range-label-group {
+    text-align: center;
+}
+
+.range-label-title {
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    margin-bottom: 2px;
+}
+
+.range-label-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+}
+
+#charge-slider {
+    margin: 8px 10px 0;
+}
+
+.range-bounds {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-top: 10px;
+}
+
+/* noUiSlider dark theme overrides */
+#charge-slider .noUi-target {
+    background: var(--ring-bg);
+    border: none;
+    border-radius: 3px;
+    box-shadow: none;
+    height: 6px;
+}
+
+#charge-slider .noUi-connect {
+    background: var(--primary);
+}
+
+#charge-slider .noUi-handle {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 2px solid var(--surface);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    cursor: pointer;
+    top: -9px;
+    right: -11px;
+}
+
+#charge-slider .noUi-handle::before,
+#charge-slider .noUi-handle::after {
+    display: none;
+}
+
+#charge-slider .noUi-handle:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.3);
+}
+
+#charge-slider .noUi-handle.noUi-handle-lower {
+    background: var(--warning);
+}
+
+#charge-slider .noUi-tooltip {
+    display: none;
+}
+
+.control-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface-hover);
+    color: var(--text);
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+
+.control-btn:hover {
+    background: var(--border);
+}
+
+.control-btn.small {
+    width: 30px;
+    height: 30px;
+    font-size: 1rem;
+}
+
+/* Connection */
+.connection-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+.status-dot.connected {
+    background: var(--success);
+}
+
+.status-dot.active {
+    background: var(--primary);
+    animation: pulse 1.5s infinite;
+}
+
+.status-dot.warning {
+    background: var(--warning);
+}
+
+.status-dot.error {
+    background: var(--danger);
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+.button-row {
+    display: flex;
+    gap: 10px;
+}
+
+.action-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-hover);
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.action-btn:hover {
+    background: var(--border);
+}
+
+.action-btn.danger {
+    border-color: rgba(255, 59, 48, 0.3);
+    color: var(--danger);
+}
+
+.action-btn.danger:hover {
+    background: rgba(255, 59, 48, 0.1);
+}
+
+/* Metrics */
+.metrics-row {
+    display: flex;
+    gap: 12px;
+}
+
+.metric-box {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    background: var(--bg);
+    border-radius: 8px;
+}
+
+.metric-value {
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+.metric-unit {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+/* Settings */
+.setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+}
+
+.setting-row + .setting-row {
+    border-top: 1px solid var(--border);
+}
+
+.setting-label {
+    font-size: 0.9rem;
+}
+
+.setting-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mode-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.mode-btn.active {
+    background: var(--primary);
+    color: var(--text);
+    border-color: var(--primary);
+}
+
+.mode-btn:hover:not(.active):not(.override-on):not(.override-off) {
+    background: var(--surface-hover);
+}
+
+/* Override row */
+.override-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+
+.override-toggle {
+    display: flex;
+    gap: 4px;
+}
+
+.override-toggle .mode-btn.override-on {
+    background: var(--success);
+    color: var(--text);
+    border-color: var(--success);
+}
+
+.override-toggle .mode-btn.override-off {
+    background: var(--danger);
+    color: var(--text);
+    border-color: var(--danger);
+}
+
+/* Device Info */
+.device-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+}
+
+.info-label {
+    color: var(--text-secondary);
+}

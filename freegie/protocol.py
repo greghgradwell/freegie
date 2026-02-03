@@ -15,8 +15,8 @@ CMD_ISPD = "AT+ISPD?"
 CMD_POWER_OFF = "AT+PIO20"  # Cut USB-C power (stop charging)
 CMD_POWER_ON = "AT+PIO21"   # Restore USB-C power (start charging)
 
-CMD_PD_MODE_1 = "AT+PDMO1"  # Basic 5V mode
-CMD_PD_MODE_2 = "AT+PDMO2"  # Full PD mode
+CMD_PD_MODE_1 = "AT+PDMO1"  # Half PD — reduced voltage/wattage
+CMD_PD_MODE_2 = "AT+PDMO2"  # Full PD — maximum negotiated voltage/wattage
 
 
 CAPA_BIT_PD = 0       # Supports USB Power Delivery
@@ -54,11 +54,6 @@ class ParseError(ValueError):
 
 
 def parse_response(raw: str) -> tuple[str, str]:
-    """Split a raw OK+ response into (command_key, value).
-
-    Example: "OK+STAT:1.81/15.00" -> ("STAT", "1.81/15.00")
-             "OK+PIO2:0"          -> ("PIO2", "0")
-    """
     raw = raw.strip()
     if not raw.startswith("OK+"):
         raise ParseError(f"Not an OK+ response: {raw!r}")
