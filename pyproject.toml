@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "freegie"
+version = "0.1.0"
+description = "Open-source charge management daemon for Chargie hardware"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = [
+    "bleak>=0.21.0",
+    "aiohttp>=3.9.0",
+]
+
+[project.optional-dependencies]
+tray = ["pystray>=0.19.0", "Pillow>=10.0"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23.0"]
+
+[project.scripts]
+freegie = "freegie.__main__:main"
+freegie-tray = "freegie.tray:main"
+
+[tool.setuptools.packages.find]
+include = ["freegie*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
