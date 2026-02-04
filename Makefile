@@ -1,4 +1,4 @@
-.PHONY: install install-dev install-tray install-systemd uninstall test
+.PHONY: install install-dev install-tray install-systemd install-desktop uninstall test
 
 VENV := .venv
 PYTHON := $(VENV)/bin/python
@@ -33,6 +33,12 @@ install-tray-systemd:
 	systemctl --user enable freegie-tray
 	@echo "Run 'systemctl --user start freegie-tray' to start the tray icon"
 
+# Desktop entry for app launcher
+install-desktop:
+	mkdir -p ~/.local/share/applications
+	cp freegie-tray.desktop ~/.local/share/applications/
+	@echo "Freegie tray added to application launcher"
+
 uninstall:
 	-sudo systemctl stop freegie
 	-sudo systemctl disable freegie
@@ -42,6 +48,7 @@ uninstall:
 	-rm ~/.config/systemd/user/freegie-tray.service
 	-sudo systemctl daemon-reload
 	-systemctl --user daemon-reload
+	-rm ~/.local/share/applications/freegie-tray.desktop
 	pip uninstall -y freegie
 
 test:

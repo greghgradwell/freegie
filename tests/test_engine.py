@@ -51,6 +51,12 @@ def config():
     return ChargeConfig(charge_max=80, charge_min=75, pd_mode=2)
 
 
+@pytest.fixture(autouse=True)
+def _no_save_state():
+    with patch("freegie.engine.save_state") as mock_save:
+        yield mock_save
+
+
 @pytest.fixture
 def engine(ble, battery, config):
     return ChargeEngine(ble, battery, config)
@@ -100,8 +106,8 @@ def test_update_config_rejects_min_above_max(engine):
     assert engine.charge_config.charge_min == 75
 
 
-@patch("freegie.engine.save_state")
-def test_update_config_persists_charge_limits(mock_save, engine):
+def test_update_config_persists_charge_limits(engine, _no_save_state):
+    mock_save = _no_save_state
     engine.update_config(charge_max=90)
     mock_save.assert_called_once_with(90, 75, 30)
 
@@ -110,14 +116,14 @@ def test_update_config_persists_charge_limits(mock_save, engine):
     mock_save.assert_called_once_with(90, 60, 30)
 
 
-@patch("freegie.engine.save_state")
-def test_update_config_persists_telemetry_interval(mock_save, engine):
+def test_update_config_persists_telemetry_interval(engine, _no_save_state):
+    mock_save = _no_save_state
     engine.update_config(telemetry_interval=10)
     mock_save.assert_called_once_with(80, 75, 10)
 
 
-@patch("freegie.engine.save_state")
-def test_update_config_skips_save_when_unchanged(mock_save, engine):
+def test_update_config_skips_save_when_unchanged(engine, _no_save_state):
+    mock_save = _no_save_state
     engine.update_config(pd_mode=2)
     mock_save.assert_not_called()
 

@@ -30,6 +30,7 @@ def create_app(
     app[_engine_key] = engine
     app[_ws_clients_key] = set()
     app[_static_dir_key] = static_dir
+    app.on_shutdown.append(_on_shutdown)
 
     if stop_event is not None:
         app[_stop_event_key] = stop_event
@@ -145,6 +146,14 @@ async def _trigger_shutdown(engine, stop_event, start_task):
         log.warning("Shutdown incomplete: %s", e)
     if stop_event is not None:
         stop_event.set()
+
+
+async def _on_shutdown(app: web.Application):
+    for ws in set(app[_ws_clients_key]):
+        try:
+            await ws.close()
+        except Exception:
+            pass
 
 
 async def handle_index(request: web.Request) -> web.FileResponse:

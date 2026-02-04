@@ -106,7 +106,7 @@ async def _run(engine: ChargeEngine, port: int):
             lambda s=sig: asyncio.create_task(_shutdown(engine, stop_event, start_task, s)),
         )
 
-    runner = web.AppRunner(app)
+    runner = web.AppRunner(app, shutdown_timeout=5.0)
     await runner.setup()
     site = web.TCPSite(runner, "127.0.0.1", port)
     await site.start()

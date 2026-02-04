@@ -2,17 +2,43 @@
 
 venv := "/home/ubuntu/.venvs/freegie-env/bin/activate"
 
-# Start the daemon
-run:
+# --- Service (systemd) ---
+
+# Start the service
+start:
+    sudo systemctl start freegie
+
+# Stop the service
+stop:
+    sudo systemctl stop freegie
+
+# Restart the service
+restart:
+    sudo systemctl restart freegie
+
+# Show service status
+status:
+    systemctl status freegie
+
+# Follow service logs
+logs:
+    journalctl -u freegie -f
+
+# --- Daemon (direct, no systemd) ---
+
+# Run the daemon directly
+daemon-run:
     . {{venv}} && python -m freegie daemon
 
-# Start the daemon with debug logging
-debug:
+# Run the daemon with debug logging
+daemon-debug:
     . {{venv}} && python -m freegie daemon --log-level debug
 
-# Show daemon status via CLI
-status:
+# Query the running daemon via CLI
+daemon-status:
     . {{venv}} && python -m freegie status
+
+# --- Tray ---
 
 # Start the system tray icon
 tray:
@@ -21,6 +47,8 @@ tray:
 # Start the system tray icon with debug logging
 tray-debug:
     . {{venv}} && python -m freegie.tray --log-level debug
+
+# --- Development ---
 
 # Run all unit tests
 test:
