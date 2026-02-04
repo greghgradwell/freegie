@@ -23,6 +23,11 @@ CAPA_BIT_PD = 0       # Supports USB Power Delivery
 CAPA_BIT_FET2 = 1     # Has second FET (dual-channel)
 CAPA_BIT_AUTO = 2     # Supports auto mode
 
+PD_MIN_VOLTS = 7.0          # Voltage must exceed base USB-C 5V to confirm PD
+PD_RELAY_OFF_DELAY = 1.0    # Seconds to wait after relay off for USB-C disconnect
+PD_RELAY_ON_DELAY = 3.0     # Seconds to wait after relay on for USB-C link to stabilize
+PD_CONFIRM_TIMEOUT = 10.0   # Seconds to poll STAT waiting for PD negotiation
+
 
 @dataclass(frozen=True, slots=True)
 class Capabilities:

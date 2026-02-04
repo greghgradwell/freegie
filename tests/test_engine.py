@@ -394,6 +394,13 @@ def test_status_includes_override(engine):
 
 
 @pytest.mark.asyncio
+async def test_confirm_pd_rejects_base_usb_voltage(engine, ble):
+    ble.send_command = AsyncMock(return_value="OK+STAT:0.00/5.00")
+    result = await engine._confirm_pd_active(timeout=2.0)
+    assert result is False
+
+
+@pytest.mark.asyncio
 async def test_poll_telemetry_rejects_when_idle(engine):
     with pytest.raises(ConnectionError, match="not connected"):
         await engine.poll_telemetry()

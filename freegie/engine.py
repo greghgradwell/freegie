@@ -17,6 +17,10 @@ from freegie.protocol import (
     CMD_POWER_OFF,
     CMD_POWER_ON,
     CMD_STAT,
+    PD_CONFIRM_TIMEOUT,
+    PD_MIN_VOLTS,
+    PD_RELAY_OFF_DELAY,
+    PD_RELAY_ON_DELAY,
     DeviceInfo,
     Telemetry,
     parse_capabilities,
@@ -153,14 +157,14 @@ class ChargeEngine:
             if parse_power_state(resp):
                 raise ConnectionError("CMD_POWER_OFF but device reports ON")
             self._charging = False
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(PD_RELAY_OFF_DELAY)
 
             # Relay on
             resp = await self._ble.send_command(CMD_POWER_ON)
             if not parse_power_state(resp):
                 raise ConnectionError("CMD_POWER_ON but device reports OFF")
             self._charging = True
-            await asyncio.sleep(2.0)
+            await asyncio.sleep(PD_RELAY_ON_DELAY)
 
             # Configure PD
             try:
@@ -181,13 +185,13 @@ class ChargeEngine:
             log.warning("PD negotiation attempt %d failed, retrying", attempt + 1)
         raise ConnectionError("PD negotiation failed after 3 attempts")
 
-    async def _confirm_pd_active(self, timeout: float = 10.0) -> bool:
+    async def _confirm_pd_active(self, timeout: float = PD_CONFIRM_TIMEOUT) -> bool:
         deadline = asyncio.get_running_loop().time() + timeout
         while asyncio.get_running_loop().time() < deadline:
             try:
                 stat_raw = await self._ble.send_command(CMD_STAT)
                 telemetry = parse_telemetry(stat_raw)
-                if telemetry.volts > 0:
+                if telemetry.volts > PD_MIN_VOLTS:
                     self._telemetry = telemetry
                     return True
             except (TimeoutError, ConnectionError) as e:
