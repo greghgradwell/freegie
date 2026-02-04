@@ -58,10 +58,10 @@ def test_parse_response_empty_string():
 
 
 @pytest.mark.parametrize("raw,expected_volts,expected_amps", [
-    ("OK+STAT:1.81/15.00", 1.81, 15.00),
-    ("OK+STAT:4.24/15.00", 4.24, 15.00),
+    ("OK+STAT:1.81/15.00", 15.00, 1.81),
+    ("OK+STAT:4.24/15.00", 15.00, 4.24),
     ("OK+STAT:0.00/0.00", 0.0, 0.0),
-    ("OK+STAT:2.56/15.00", 2.56, 15.00),
+    ("OK+STAT:2.56/15.00", 15.00, 2.56),
 ])
 def test_parse_telemetry_valid(raw, expected_volts, expected_amps):
     t = parse_telemetry(raw)

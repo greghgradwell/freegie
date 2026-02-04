@@ -187,7 +187,7 @@ class ChargeEngine:
             try:
                 stat_raw = await self._ble.send_command(CMD_STAT)
                 telemetry = parse_telemetry(stat_raw)
-                if telemetry.amps > 5.0:
+                if telemetry.volts > 0:
                     self._telemetry = telemetry
                     return True
             except (TimeoutError, ConnectionError) as e:

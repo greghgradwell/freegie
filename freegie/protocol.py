@@ -71,7 +71,7 @@ def parse_telemetry(raw: str) -> Telemetry:
     if key != "STAT":
         raise ParseError(f"Expected STAT response, got {key!r}")
     try:
-        volts_s, amps_s = value.split("/")
+        amps_s, volts_s = value.split("/")
         return Telemetry(volts=float(volts_s), amps=float(amps_s))
     except (ValueError, AttributeError) as e:
         raise ParseError(f"Bad STAT payload: {value!r}") from e

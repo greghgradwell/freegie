@@ -258,7 +258,7 @@ async def test_poll_returns_ok_when_connected(client, engine):
     assert resp.status == 200
     data = await resp.json()
     assert data["ok"] is True
-    assert data["data"]["telemetry"]["volts"] == pytest.approx(4.24)
+    assert data["data"]["telemetry"]["volts"] == pytest.approx(15.00)
 
 
 @pytest.mark.asyncio

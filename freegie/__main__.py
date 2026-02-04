@@ -24,6 +24,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Freegie charge management")
+    parser.set_defaults(config=None, port=None, log_level=None)
     sub = parser.add_subparsers(dest="command")
 
     # daemon subcommand (also the default when no subcommand given)
