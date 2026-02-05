@@ -46,7 +46,7 @@ async def connected_engine(battery):
     engine = ChargeEngine(ble, battery, config)
     async with asyncio.timeout(120):
         await engine.start()
-    assert engine.phase == Phase.CONTROLLING, "Engine failed to reach CONTROLLING"
+    assert engine.phase == Phase.CHARGING, "Engine failed to reach CHARGING"
     # Wait for PD to settle before yielding to test
     await _poll_until(engine, lambda t: t.amps > 5.0, "initial PD settle")
     assert engine.telemetry.amps > 5.0, "PD did not settle after engine.start()"
@@ -192,7 +192,7 @@ async def test_restore_power_delivers_charge(connected_engine):
     # Restore power (the sequence under test)
     async with asyncio.timeout(30):
         await engine._restore_power()
-    engine._phase = Phase.CONTROLLING
+    engine._phase = Phase.CHARGING
 
     await _poll_until(engine, lambda t: t.amps >= baseline_amps, "PD renegotiation")
 
@@ -214,7 +214,7 @@ async def test_override_on_delivers_charge(connected_engine):
     async with asyncio.timeout(30):
         await engine.set_override("on")
     assert engine.override == "on"
-    assert engine.phase == Phase.CONTROLLING
+    assert engine.phase == Phase.CHARGING
 
     await _poll_until(engine, lambda t: t.amps > 5.0, "PD renegotiation")
 

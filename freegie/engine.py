@@ -2,6 +2,8 @@
 
 import asyncio
 import logging
+import time
+from collections import deque
 from enum import Enum, auto
 
 from freegie.battery import BatteryReader
@@ -38,7 +40,7 @@ class Phase(Enum):
     SCANNING = auto()
     CONNECTING = auto()
     VERIFYING = auto()
-    CONTROLLING = auto()
+    CHARGING = auto()
     PAUSED = auto()       # Charge limit reached, power cut
     DISCONNECTED = auto()
     RECONNECTING = auto()
@@ -56,12 +58,14 @@ class ChargeEngine:
         self._charging: bool = False
         self._override: str | None = None  # None = auto, "on", "off"
         self._sysfs_task: asyncio.Task | None = None
-        self._telemetry_task: asyncio.Task | None = None
+        self._keepalive_task: asyncio.Task | None = None
         self._reconnect_task: asyncio.Task | None = None
         self._reconnect_attempt: int = 0
         self._reconnect_delay: int = 0
         self._stopped: bool = False
         self._on_update: list = []
+        self._chart_history: deque[tuple[float, int, bool, int, int]] = deque(maxlen=2400)
+        self._chart_last_percent: int | None = None
 
         self._ble.on_state_change(self._handle_ble_state)
 
@@ -134,13 +138,13 @@ class ChargeEngine:
             if percent is not None:
                 await self._enforce_limit(percent)
         else:
-            if self._phase not in (Phase.CONTROLLING, Phase.PAUSED):
+            if self._phase not in (Phase.CHARGING, Phase.PAUSED):
                 raise ValueError("Cannot override: not connected to device")
             if mode == "on":
                 self._override = "on"
                 log.info("Override: forcing charge ON")
                 await self._power_on()
-                self._set_phase(Phase.CONTROLLING)
+                self._set_phase(Phase.CHARGING)
             else:
                 self._override = "off"
                 log.info("Override: forcing charge OFF")
@@ -191,11 +195,13 @@ class ChargeEngine:
             try:
                 stat_raw = await self._ble.send_command(CMD_STAT)
                 telemetry = parse_telemetry(stat_raw)
+                log.info("PD confirm: %.2fV %.2fA (need >%.1fV)",
+                         telemetry.volts, telemetry.amps, PD_MIN_VOLTS)
                 if telemetry.volts > PD_MIN_VOLTS:
                     self._telemetry = telemetry
                     return True
             except (TimeoutError, ConnectionError) as e:
-                log.debug("STAT poll during PD confirm failed: %s", e)
+                log.warning("STAT poll during PD confirm failed: %s", e)
             await asyncio.sleep(1.0)
         return False
 
@@ -250,7 +256,7 @@ class ChargeEngine:
             self._set_phase(Phase.IDLE)
             return
 
-        self._set_phase(Phase.CONTROLLING)
+        self._set_phase(Phase.CHARGING)
         self._start_polling()
 
     async def stop(self):
@@ -346,7 +352,7 @@ class ChargeEngine:
                     await self._ble.disconnect()
                     continue
 
-                self._set_phase(Phase.CONTROLLING)
+                self._set_phase(Phase.CHARGING)
                 self._start_polling()
                 log.info("Reconnected successfully on attempt %d", self._reconnect_attempt)
                 self._reconnect_task = None
@@ -361,16 +367,16 @@ class ChargeEngine:
     def _start_polling(self):
         if self._sysfs_task is None:
             self._sysfs_task = asyncio.create_task(self._sysfs_loop())
-        if self._telemetry_task is None:
-            self._telemetry_task = asyncio.create_task(self._telemetry_loop())
+        if self._keepalive_task is None:
+            self._keepalive_task = asyncio.create_task(self._keepalive_loop())
 
     def _stop_polling(self):
         if self._sysfs_task is not None:
             self._sysfs_task.cancel()
             self._sysfs_task = None
-        if self._telemetry_task is not None:
-            self._telemetry_task.cancel()
-            self._telemetry_task = None
+        if self._keepalive_task is not None:
+            self._keepalive_task.cancel()
+            self._keepalive_task = None
 
     async def _sysfs_loop(self):
         log.info("sysfs polling started (every %ds)", self._config.poll_interval)
@@ -384,25 +390,30 @@ class ChargeEngine:
         except asyncio.CancelledError:
             log.info("sysfs polling stopped")
 
-    async def _telemetry_loop(self):
-        log.info("BLE telemetry polling started (every %ds)", self._config.telemetry_interval)
+    async def _keepalive_loop(self):
+        log.info("BLE keep-alive started (every 1.5s, telemetry every %ds)", self._config.telemetry_interval)
+        ticks_per_telemetry = max(1, self._config.telemetry_interval // 1.5)
+        tick = 0
         try:
             while True:
                 try:
                     stat_raw = await self._ble.send_command(CMD_STAT)
-                    self._telemetry = parse_telemetry(stat_raw)
+                    tick += 1
+                    if tick >= ticks_per_telemetry:
+                        self._telemetry = parse_telemetry(stat_raw)
+                        self._notify()
+                        tick = 0
                 except TimeoutError:
                     log.debug("STAT timeout (non-fatal)")
-                self._notify()
-                await asyncio.sleep(self._config.telemetry_interval)
+                await asyncio.sleep(1.5)
         except asyncio.CancelledError:
-            log.info("BLE telemetry polling stopped")
+            log.info("BLE keep-alive stopped")
         except ConnectionError:
-            log.warning("Lost connection during telemetry polling")
+            log.warning("Lost connection during keep-alive")
             self._set_phase(Phase.DISCONNECTED)
 
     async def poll_telemetry(self):
-        if self._phase not in (Phase.CONTROLLING, Phase.PAUSED):
+        if self._phase not in (Phase.CHARGING, Phase.PAUSED):
             raise ConnectionError("Cannot poll: not connected to device")
         stat_raw = await self._ble.send_command(CMD_STAT)
         self._telemetry = parse_telemetry(stat_raw)
@@ -413,7 +424,7 @@ class ChargeEngine:
     async def _enforce_limit(self, percent: int):
         if self._override is not None:
             return
-        if self._phase == Phase.CONTROLLING and percent >= self._config.charge_max:
+        if self._phase == Phase.CHARGING and percent >= self._config.charge_max:
             log.info("Battery at %d%% >= max %d%%, cutting power", percent, self._config.charge_max)
             await self._power_off()
             self._set_phase(Phase.PAUSED)
@@ -422,11 +433,11 @@ class ChargeEngine:
         elif self._phase == Phase.PAUSED and percent <= self._config.charge_min:
             log.info("Battery at %d%% <= min %d%%, restoring power", percent, self._config.charge_min)
             await self._power_on()
-            self._set_phase(Phase.CONTROLLING)
+            self._set_phase(Phase.CHARGING)
             asyncio.create_task(self._confirm_sysfs_charging(True))
 
-        elif self._phase == Phase.CONTROLLING and not self._charging:
-            log.info("CONTROLLING but not charging — safety net, restoring power")
+        elif self._phase == Phase.CHARGING and not self._charging:
+            log.info("CHARGING but not charging — safety net, restoring power")
             await self._power_on()
             asyncio.create_task(self._confirm_sysfs_charging(True))
 
@@ -453,8 +464,24 @@ class ChargeEngine:
                     self._start_reconnect()
 
     def _notify(self):
+        self._record_chart_point()
         for cb in self._on_update:
             cb()
+
+    def _record_chart_point(self):
+        percent = self._battery.read_percent()
+        if percent is None:
+            return
+        if percent == self._chart_last_percent:
+            return
+        self._chart_last_percent = percent
+        self._chart_history.append((
+            time.time(),
+            percent,
+            self._charging,
+            self._config.charge_max,
+            self._config.charge_min,
+        ))
 
     def status(self) -> dict:
         telemetry = None
@@ -496,3 +523,9 @@ class ChargeEngine:
             result["reconnect_delay"] = self._reconnect_delay
 
         return result
+
+    def chart_history(self) -> list[list]:
+        if not self._chart_history:
+            return [[], [], [], [], []]
+        ts, pct, charging, cmax, cmin = zip(*self._chart_history)
+        return [list(ts), list(pct), list(cmax), list(cmin), list(charging)]

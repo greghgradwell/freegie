@@ -22,7 +22,7 @@ def _mock_urlopen(response_data):
 @patch("freegie.cli.urllib.request.urlopen")
 def test_cmd_status_basic(mock_urlopen, capsys):
     mock_urlopen.return_value = _mock_urlopen({
-        "phase": "controlling",
+        "phase": "charging",
         "battery_percent": 72,
         "is_charging": True,
         "charge_max": 80,
@@ -34,7 +34,7 @@ def test_cmd_status_basic(mock_urlopen, capsys):
     cmd_status("http://127.0.0.1:7380")
 
     output = capsys.readouterr().out
-    assert "Phase:     controlling" in output
+    assert "Phase:     charging" in output
     assert "Battery:   72%" in output
     assert "Charging:  yes" in output
     assert "Max:       80% (min: 75%)" in output

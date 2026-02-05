@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Freegie</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <link rel="stylesheet" href="/static/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.8.1/nouislider.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.32/dist/uPlot.min.css">
 </head>
 <body>
     <header>
@@ -45,6 +47,16 @@
                 <div class="range-bounds">
                     <span>20%</span>
                     <span>100%</span>
+                </div>
+            </div>
+
+            <div class="card" id="chart-card">
+                <h2>Charge History</h2>
+                <div id="chart-container"></div>
+                <div class="chart-legend">
+                    <span class="legend-item"><span class="legend-swatch charging"></span>Charging</span>
+                    <span class="legend-item"><span class="legend-swatch paused"></span>Paused</span>
+                    <span class="legend-item"><span class="legend-swatch threshold"></span>Min / Max</span>
                 </div>
             </div>
         </div>
@@ -125,6 +137,7 @@
     </main>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.8.1/nouislider.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.32/dist/uPlot.iife.min.js"></script>
     <script src="/static/app.js"></script>
 </body>
 </html>

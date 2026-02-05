@@ -39,7 +39,7 @@ def _build_icon(battery_percent: int | None, phase: str, is_charging: bool) -> I
     elif is_charging:
         fill = (80, 200, 80)    # green
     else:
-        fill = (80, 160, 240)   # blue (controlling but not charging)
+        fill = (80, 160, 240)   # blue (charging but not charging)
 
     draw.rounded_rectangle([4, 12, 56, 56], radius=4, outline=fill, width=3)
     draw.rectangle([20, 6, 44, 12], fill=fill)
@@ -146,7 +146,7 @@ def run_tray(daemon_url: str = DEFAULT_DAEMON_URL):
                 icon.menu = build_menu()
 
                 if last_phase and phase != last_phase:
-                    if phase == "controlling":
+                    if phase == "charging":
                         _send_notification("Freegie", "Connected to Chargie")
                     elif phase == "disconnected":
                         _send_notification("Freegie", "Chargie disconnected")

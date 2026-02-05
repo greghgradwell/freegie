@@ -144,18 +144,18 @@ async def test_enforce_limit_stays_paused_above_min(engine, ble):
 
 @pytest.mark.asyncio
 async def test_enforce_limit_no_action_below_max(engine, ble):
-    engine._phase = Phase.CONTROLLING
+    engine._phase = Phase.CHARGING
     engine._charging = True
 
     await engine._enforce_limit(70)
 
     ble.send_command.assert_not_awaited()
-    assert engine.phase == Phase.CONTROLLING
+    assert engine.phase == Phase.CHARGING
 
 
 @pytest.mark.asyncio
 async def test_enforce_limit_skipped_during_override(engine, ble):
-    engine._phase = Phase.CONTROLLING
+    engine._phase = Phase.CHARGING
     engine._charging = True
     engine._override = "on"
 
@@ -164,7 +164,7 @@ async def test_enforce_limit_skipped_during_override(engine, ble):
     await engine._enforce_limit(99)
 
     ble.send_command.assert_not_awaited()
-    assert engine.phase == Phase.CONTROLLING
+    assert engine.phase == Phase.CHARGING
 
 
 # --- Error handling (tests our code's response to bad data, not device behavior) ---
@@ -208,18 +208,18 @@ async def test_verify_device_fails_on_timeout(engine, ble):
 
 @pytest.mark.asyncio
 async def test_ble_disconnect_stops_polling(engine):
-    engine._phase = Phase.CONTROLLING
+    engine._phase = Phase.CHARGING
     mock_sysfs = MagicMock()
-    mock_telem = MagicMock()
+    mock_keepalive = MagicMock()
     engine._sysfs_task = mock_sysfs
-    engine._telemetry_task = mock_telem
+    engine._keepalive_task = mock_keepalive
 
     engine._handle_ble_state(ConnectionState.DISCONNECTED)
 
     mock_sysfs.cancel.assert_called_once()
-    mock_telem.cancel.assert_called_once()
+    mock_keepalive.cancel.assert_called_once()
     assert engine._sysfs_task is None
-    assert engine._telemetry_task is None
+    assert engine._keepalive_task is None
     assert engine.phase == Phase.RECONNECTING
     assert engine._charging is False
     engine._stop_reconnect()
@@ -235,7 +235,7 @@ def test_ble_disconnect_no_op_when_idle(engine):
 
 @pytest.mark.asyncio
 async def test_ble_disconnect_resets_charging(engine):
-    engine._phase = Phase.CONTROLLING
+    engine._phase = Phase.CHARGING
     engine._charging = True
 
     engine._handle_ble_state(ConnectionState.DISCONNECTED)
@@ -246,7 +246,7 @@ async def test_ble_disconnect_resets_charging(engine):
 
 @pytest.mark.asyncio
 async def test_auto_reconnect_starts_on_disconnect(engine):
-    engine._phase = Phase.CONTROLLING
+    engine._phase = Phase.CHARGING
 
     engine._handle_ble_state(ConnectionState.DISCONNECTED)
 
@@ -258,7 +258,7 @@ async def test_auto_reconnect_starts_on_disconnect(engine):
 def test_auto_reconnect_disabled(engine, config):
     config.auto_reconnect = False
     engine._config = config
-    engine._phase = Phase.CONTROLLING
+    engine._phase = Phase.CHARGING
 
     engine._handle_ble_state(ConnectionState.DISCONNECTED)
 
@@ -287,7 +287,7 @@ async def test_stop_resets_charging(engine):
 
 @pytest.mark.asyncio
 async def test_stop_prevents_reconnect_on_ble_callback(engine):
-    engine._phase = Phase.CONTROLLING
+    engine._phase = Phase.CHARGING
     engine._config.auto_reconnect = True
 
     await engine.stop()
@@ -347,7 +347,7 @@ async def test_confirm_sysfs_charging_timeout(engine, battery, caplog):
 
 @pytest.mark.asyncio
 async def test_set_override_auto_clears(engine, ble):
-    engine._phase = Phase.CONTROLLING
+    engine._phase = Phase.CHARGING
     engine._charging = True
     engine._override = "on"
 
@@ -372,7 +372,7 @@ async def test_override_invalid_mode(engine):
 
 @pytest.mark.asyncio
 async def test_override_cleared_on_disconnect(engine):
-    engine._phase = Phase.CONTROLLING
+    engine._phase = Phase.CHARGING
     engine._override = "on"
 
     engine._handle_ble_state(ConnectionState.DISCONNECTED)

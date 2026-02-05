@@ -45,6 +45,7 @@ def create_app(
     app.router.add_post("/api/override", handle_override)
     app.router.add_post("/api/poll", handle_poll)
     app.router.add_post("/api/shutdown", handle_shutdown)
+    app.router.add_get("/api/chart-history", handle_chart_history)
     app.router.add_get("/ws", handle_websocket)
 
     if static_dir.is_dir():
@@ -125,6 +126,11 @@ async def handle_poll(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, "data": engine.status()})
 
 
+async def handle_chart_history(request: web.Request) -> web.Response:
+    engine: ChargeEngine = request.app[_engine_key]
+    return web.json_response(engine.chart_history())
+
+
 async def handle_shutdown(request: web.Request) -> web.Response:
     stop_event = request.app.get(_stop_event_key)
     start_task = request.app.get(_start_task_key)
@@ -169,6 +175,7 @@ async def handle_websocket(request: web.Request) -> web.WebSocketResponse:
     engine: ChargeEngine = request.app[_engine_key]
 
     await ws.send_json({"type": "status_update", "data": engine.status()})
+    await ws.send_json({"type": "chart_history", "data": engine.chart_history()})
 
     try:
         async for msg in ws:

@@ -11,16 +11,16 @@ stateDiagram-v2
     CONNECTING --> IDLE : failed
     CONNECTING --> VERIFYING : connected
     VERIFYING --> IDLE : failed
-    VERIFYING --> CONTROLLING : verified + PD configured
-    CONTROLLING --> PAUSED : battery >= charge_max
-    PAUSED --> CONTROLLING : battery <= charge_min
-    CONTROLLING --> DISCONNECTED : BLE disconnect
+    VERIFYING --> CHARGING : verified + PD configured
+    CHARGING --> PAUSED : battery >= charge_max
+    PAUSED --> CHARGING : battery <= charge_min
+    CHARGING --> DISCONNECTED : BLE disconnect
     PAUSED --> DISCONNECTED : BLE disconnect
     DISCONNECTED --> RECONNECTING : auto_reconnect
     DISCONNECTED --> IDLE : no auto_reconnect
-    RECONNECTING --> CONTROLLING : reconnected
+    RECONNECTING --> CHARGING : reconnected
     RECONNECTING --> IDLE : stop()
-    CONTROLLING --> IDLE : stop()
+    CHARGING --> IDLE : stop()
     PAUSED --> IDLE : stop()
 ```
 
@@ -28,7 +28,7 @@ stateDiagram-v2
 
 | Phase | `_charging` | Hardware Power |
 |-------|-------------|----------------|
-| CONTROLLING | `True` | ON |
+| CHARGING | `True` | ON |
 | PAUSED | `False` | OFF |
 | DISCONNECTED | `False` | unknown |
 | IDLE | `False` | N/A |
@@ -40,7 +40,7 @@ stateDiagram-v2
 
 ## Polling Model
 
-Two independent loops run during CONTROLLING and PAUSED phases:
+Two independent loops run during CHARGING and PAUSED phases:
 
 ### sysfs loop (fast, control)
 - **Interval:** `poll_interval` (default 3s)
@@ -57,7 +57,7 @@ Two independent loops run during CONTROLLING and PAUSED phases:
 The sysfs loop handles 99% of cycles with zero BLE traffic. BLE commands are only sent when:
 1. Battery crosses `charge_max` → `_power_off()`
 2. Battery crosses `charge_min` → `_power_on()`
-3. Safety net: CONTROLLING but `_charging=False` → `_power_on()`
+3. Safety net: CHARGING but `_charging=False` → `_power_on()`
 
 ## Power Commands
 
@@ -91,8 +91,8 @@ The engine supports a manual override flag (`_override`) that is orthogonal to t
 ### Behavior
 
 - When override is `"on"` or `"off"`, `_enforce_limit()` returns immediately. The sysfs polling loop continues running for battery % updates.
-- Phase still reflects the actual hardware power state: `CONTROLLING` when power is on (force-on or auto), `PAUSED` when power is off (force-off or auto).
-- Override can only be set when connected (phase is `CONTROLLING` or `PAUSED`). Setting to `"auto"` is always allowed.
+- Phase still reflects the actual hardware power state: `CHARGING` when power is on (force-on or auto), `PAUSED` when power is off (force-off or auto).
+- Override can only be set when connected (phase is `CHARGING` or `PAUSED`). Setting to `"auto"` is always allowed.
 
 ### Clearing
 

@@ -147,17 +147,30 @@ async def test_disconnect_returns_ok(client):
 
 
 @pytest.mark.asyncio
+async def test_chart_history_endpoint(client):
+    resp = await client.get("/api/chart-history")
+    assert resp.status == 200
+    data = await resp.json()
+    assert len(data) == 5
+    assert data == [[], [], [], [], []]
+
+
+@pytest.mark.asyncio
 async def test_websocket_initial_status(client):
     async with client.ws_connect("/ws") as ws:
         msg = await ws.receive_json()
         assert msg["type"] == "status_update"
         assert msg["data"]["phase"] == "idle"
+        hist = await ws.receive_json()
+        assert hist["type"] == "chart_history"
+        assert len(hist["data"]) == 5
 
 
 @pytest.mark.asyncio
 async def test_websocket_set_max_valid(client):
     async with client.ws_connect("/ws") as ws:
         await ws.receive_json()  # initial status
+        await ws.receive_json()  # chart history
         await ws.send_json({"type": "set_max", "value": 90})
         msg = await ws.receive_json()
         assert msg["type"] == "status_update"
@@ -168,6 +181,7 @@ async def test_websocket_set_max_valid(client):
 async def test_websocket_set_max_invalid(client):
     async with client.ws_connect("/ws") as ws:
         await ws.receive_json()  # initial status
+        await ws.receive_json()  # chart history
         await ws.send_json({"type": "set_max", "value": 999})
         msg = await ws.receive_json()
         assert msg["type"] == "error"
@@ -177,6 +191,7 @@ async def test_websocket_set_max_invalid(client):
 async def test_websocket_set_min_valid(client):
     async with client.ws_connect("/ws") as ws:
         await ws.receive_json()  # initial status
+        await ws.receive_json()  # chart history
         await ws.send_json({"type": "set_min", "value": 70})
         msg = await ws.receive_json()
         assert msg["type"] == "status_update"
@@ -187,6 +202,7 @@ async def test_websocket_set_min_valid(client):
 async def test_websocket_unknown_type(client):
     async with client.ws_connect("/ws") as ws:
         await ws.receive_json()  # initial status
+        await ws.receive_json()  # chart history
         await ws.send_json({"type": "bogus"})
         msg = await ws.receive_json()
         assert msg["type"] == "error"
@@ -197,6 +213,7 @@ async def test_websocket_unknown_type(client):
 async def test_websocket_invalid_json(client):
     async with client.ws_connect("/ws") as ws:
         await ws.receive_json()  # initial status
+        await ws.receive_json()  # chart history
         await ws.send_str("not json{{{")
         msg = await ws.receive_json()
         assert msg["type"] == "error"
@@ -208,7 +225,7 @@ async def test_websocket_invalid_json(client):
 
 @pytest.mark.asyncio
 async def test_override_on_via_api(client, engine):
-    engine._phase = Phase.CONTROLLING
+    engine._phase = Phase.CHARGING
     engine._charging = True
 
     resp = await client.post("/api/override", json={"mode": "on"})
@@ -235,11 +252,12 @@ async def test_override_not_connected_api(client):
 
 @pytest.mark.asyncio
 async def test_websocket_override(client, engine):
-    engine._phase = Phase.CONTROLLING
+    engine._phase = Phase.CHARGING
     engine._charging = True
 
     async with client.ws_connect("/ws") as ws:
         await ws.receive_json()  # initial status
+        await ws.receive_json()  # chart history
         await ws.send_json({"type": "override", "value": "on"})
         msg = await ws.receive_json()
         assert msg["type"] == "status_update"
@@ -251,7 +269,7 @@ async def test_websocket_override(client, engine):
 
 @pytest.mark.asyncio
 async def test_poll_returns_ok_when_connected(client, engine):
-    engine._phase = Phase.CONTROLLING
+    engine._phase = Phase.CHARGING
     engine._ble.send_command = AsyncMock(return_value="OK+STAT:4.24/15.00")
 
     resp = await client.post("/api/poll")

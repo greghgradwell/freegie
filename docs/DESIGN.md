@@ -67,11 +67,11 @@ Core charge management logic. Pure logic, no I/O (depends on BLE manager and bat
 
 **State machine:**
 ```
-IDLE -> SCANNING -> CONNECTING -> VERIFYING -> CONTROLLING <-> PAUSED
+IDLE -> SCANNING -> CONNECTING -> VERIFYING -> CHARGING <-> PAUSED
                                                     │              │
                                                     └── DISCONNECTED
                                                            │
-                                                    RECONNECTING -> CONTROLLING
+                                                    RECONNECTING -> CHARGING
 ```
 See [STATE_MACHINE.md](STATE_MACHINE.md) for the full diagram with invariants.
 
@@ -83,7 +83,7 @@ if battery_percent >= charge_max:
 
 if state == PAUSED and battery_percent <= charge_min:
     _power_on()      # AT+PIO21 + verify response
-    state = CONTROLLING
+    state = CHARGING
 ```
 
 ### 3. HTTP/WebSocket Server (`freegie/server.py`)
@@ -99,6 +99,7 @@ Local API server using `aiohttp`. Serves both the REST API and the web UI static
 | PUT | `/api/settings` | Update configuration (charge limit, PD mode, etc.) |
 | POST | `/api/scan` | Trigger manual BLE scan |
 | POST | `/api/disconnect` | Disconnect from device |
+| GET | `/api/chart-history` | Columnar chart data `[[timestamps], [percents], [maxes], [mins]]` |
 | GET | `/` | Web UI (static files) |
 
 **WebSocket:** `ws://localhost:PORT/ws`
@@ -114,12 +115,20 @@ Local API server using `aiohttp`. Serves both the REST API and the web UI static
     "is_charging": true,
     "charge_max": 83,
     "charge_min": 75,
-    "phase": "controlling",
+    "phase": "charging",
     "telemetry": {"volts": 4.24, "amps": 15.0, "watts": 63.6},
     "device": {"name": "Chargie Laptops", "firmware": "10", "hardware": "3.00"}
   }
 }
 ```
+
+**Chart History:**
+
+The engine maintains a server-side ring buffer (`collections.deque(maxlen=2400)`) of chart data points, recording `(timestamp, battery_percent, is_charging, charge_max, charge_min)` on every `_notify()` call. At the default 3s poll interval this holds ~2 hours of history.
+
+On WebSocket connect, the server sends a `chart_history` message immediately after the initial `status_update`, so the frontend can seed the chart without a separate fetch. The data is columnar: `[[timestamps], [percents], [maxes], [mins]]`.
+
+The web UI renders this with uPlot (canvas-based, loaded from jsdelivr CDN). The battery line color changes based on charging state: blue (`--primary`) when charging, orange (`--warning`) when paused. Threshold lines (charge_max, charge_min) are gray dashed. Colors are colorblind-safe (blue/orange avoids red/green reliance). If the CDN fails to load, the chart is a no-op and the rest of the dashboard works normally.
 
 ### 4. Tray Icon (`freegie/tray.py`)
 

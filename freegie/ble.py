@@ -16,6 +16,7 @@ log = logging.getLogger(__name__)
 _CHAR_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
 
 _COMMAND_SPACING_S = 0.1
+_CONNECT_TIMEOUT_S = 15.0
 _RESPONSE_TIMEOUT_S = 5.0
 _SCAN_TIMEOUT_S = 20.0
 
@@ -108,7 +109,17 @@ class BLEManager:
             disconnected_callback=self._on_disconnect,
         )
 
-        await client.connect()
+        try:
+            async with asyncio.timeout(_CONNECT_TIMEOUT_S):
+                await client.connect()
+        except asyncio.TimeoutError:
+            log.error("Connection timed out after %.0fs", _CONNECT_TIMEOUT_S)
+            try:
+                await client.disconnect()
+            except Exception:
+                pass
+            self._set_state(ConnectionState.DISCONNECTED)
+            return False
 
         if not client.is_connected:
             log.error("Connection failed")

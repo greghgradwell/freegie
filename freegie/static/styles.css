@@ -51,7 +51,7 @@ header h1 {
     color: var(--text-secondary);
 }
 
-.phase-badge.controlling,
+.phase-badge.charging,
 .phase-badge.paused {
     background: rgba(52, 199, 89, 0.15);
     color: var(--success);
@@ -469,4 +469,37 @@ header h1 {
 
 .info-label {
     color: var(--text-secondary);
+}
+
+/* Charge History Chart */
+#chart-container { width: 100%; height: 200px; }
+.u-legend { display: none; }
+
+.chart-legend {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-top: 10px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.legend-swatch {
+    display: inline-block;
+    width: 16px;
+    height: 3px;
+    border-radius: 1px;
+}
+
+.legend-swatch.charging { background: var(--primary); }
+.legend-swatch.paused { background: var(--warning); }
+.legend-swatch.threshold {
+    height: 0;
+    border-top: 2px dashed var(--text-secondary);
 }
