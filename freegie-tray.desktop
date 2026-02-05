@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Freegie Tray
-Comment=Battery charge management tray icon
-Exec=/home/ubuntu/Documents/Github/freegie/.venv/bin/freegie-tray
-Icon=battery-full-charging
-Terminal=false
-StartupNotify=false
-Categories=Utility;
