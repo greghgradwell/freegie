@@ -193,10 +193,6 @@ This stops and removes the systemd service, tray icon, desktop entry, and virtua
 
 MIT License - see [LICENSE](LICENSE) for details.
 
-## Security
-
-See [SECURITY.md](SECURITY.md) for security policy and vulnerability reporting.
-
 ## Acknowledgments
 
 - [Chargie](https://chargie.org/) for the hardware that makes this possible
