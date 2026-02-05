@@ -1,6 +1,6 @@
 # Freegie development commands
 
-venv := "/home/ubuntu/.venvs/freegie-env/bin/activate"
+venv := env("FREEGIE_VENV", ".venv/bin/activate")
 
 # --- Service (systemd) ---
 

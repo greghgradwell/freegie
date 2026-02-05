@@ -5,8 +5,8 @@ Wants=bluetooth.target
 
 [Service]
 Type=simple
-User=ubuntu
-ExecStart=/home/ubuntu/Documents/Github/freegie/.venv/bin/python -m freegie
+User=@USER@
+ExecStart=@PYTHON@ -m freegie@PORT_ARG@
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1

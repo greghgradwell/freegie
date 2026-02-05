@@ -333,19 +333,13 @@ function initChart() {
                 stroke: axisStroke,
                 grid: { stroke: gridStroke, width: 1 },
                 ticks: { stroke: gridStroke, width: 1 },
+                incrs: [60, 120, 300, 600, 900, 1800, 3600],
                 values: function(self, ticks) {
-                    var range = ticks[ticks.length - 1] - ticks[0];
-                    var showSecs = range < 600;
                     return ticks.map(function(v) {
                         var d = new Date(v * 1000);
                         var h = d.getHours();
                         var m = d.getMinutes();
-                        var t = (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
-                        if (showSecs) {
-                            var s = d.getSeconds();
-                            t += ":" + (s < 10 ? "0" : "") + s;
-                        }
-                        return t;
+                        return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
                     });
                 }
             },

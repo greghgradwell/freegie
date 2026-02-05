@@ -1,3 +1,4 @@
+import json
 import logging
 
 import pytest
@@ -20,16 +21,17 @@ def test_defaults():
 
 
 def test_load_from_file(tmp_path):
-    config_file = tmp_path / "config.toml"
-    config_file.write_text(
-        "[charge]\n"
-        "charge_max = 83\n"
-        "charge_min = 70\n"
-        "pd_mode = 1\n"
-        "\n"
-        "[daemon]\n"
-        'log_level = "debug"\n'
-    )
+    config_file = tmp_path / "config.json"
+    config_file.write_text(json.dumps({
+        "charge": {
+            "charge_max": 83,
+            "charge_min": 70,
+            "pd_mode": 1
+        },
+        "daemon": {
+            "log_level": "debug"
+        }
+    }))
     cfg = load_config(config_file)
     assert cfg.charge.charge_max == 83
     assert cfg.charge.charge_min == 70
@@ -42,21 +44,23 @@ def test_load_from_file(tmp_path):
 
 
 def test_load_missing_file_returns_defaults(tmp_path):
-    cfg = load_config(tmp_path / "nonexistent.toml")
+    cfg = load_config(tmp_path / "nonexistent.json")
     assert cfg.charge.charge_max == 80
 
 
 def test_partial_config(tmp_path):
-    config_file = tmp_path / "config.toml"
-    config_file.write_text("[charge]\ncharge_max = 90\ncharge_min = 70\n")
+    config_file = tmp_path / "config.json"
+    config_file.write_text(json.dumps({
+        "charge": {"charge_max": 90, "charge_min": 70}
+    }))
     cfg = load_config(config_file)
     assert cfg.charge.charge_max == 90
     assert cfg.charge.charge_min == 70
 
 
 def test_empty_file(tmp_path):
-    config_file = tmp_path / "config.toml"
-    config_file.write_text("")
+    config_file = tmp_path / "config.json"
+    config_file.write_text("{}")
     cfg = load_config(config_file)
     assert cfg.charge.charge_max == 80
 
@@ -105,7 +109,7 @@ def test_valid_edge_cases():
 
 
 def test_save_and_load_state(tmp_path):
-    state_file = tmp_path / "state.toml"
+    state_file = tmp_path / "state.json"
     save_state(90, 60, 15, path=state_file)
 
     config = Config()
@@ -122,15 +126,15 @@ def test_save_and_load_state(tmp_path):
 
 def test_load_state_missing_file(tmp_path):
     config = Config()
-    load_state(config, path=tmp_path / "nonexistent.toml")
+    load_state(config, path=tmp_path / "nonexistent.json")
 
     assert config.charge.charge_max == 80
     assert config.charge.charge_min == 75
 
 
 def test_load_state_invalid_values(tmp_path):
-    state_file = tmp_path / "state.toml"
-    state_file.write_text("charge_max = 50\ncharge_min = 50\n")
+    state_file = tmp_path / "state.json"
+    state_file.write_text(json.dumps({"charge_max": 50, "charge_min": 50}))
 
     config = Config()
     load_state(config, path=state_file)
@@ -140,8 +144,8 @@ def test_load_state_invalid_values(tmp_path):
 
 
 def test_load_state_partial(tmp_path):
-    state_file = tmp_path / "state.toml"
-    state_file.write_text("charge_max = 95\n")
+    state_file = tmp_path / "state.json"
+    state_file.write_text(json.dumps({"charge_max": 95}))
 
     config = Config()
     load_state(config, path=state_file)
@@ -151,7 +155,7 @@ def test_load_state_partial(tmp_path):
 
 
 def test_save_state_creates_parent_dirs(tmp_path):
-    state_file = tmp_path / "sub" / "dir" / "state.toml"
+    state_file = tmp_path / "sub" / "dir" / "state.json"
     save_state(85, 70, path=state_file)
 
     assert state_file.is_file()
@@ -162,8 +166,8 @@ def test_save_state_creates_parent_dirs(tmp_path):
 
 
 def test_load_state_telemetry_interval_partial(tmp_path):
-    state_file = tmp_path / "state.toml"
-    state_file.write_text("charge_max = 90\ncharge_min = 60\n")
+    state_file = tmp_path / "state.json"
+    state_file.write_text(json.dumps({"charge_max": 90, "charge_min": 60}))
 
     config = Config()
     load_state(config, path=state_file)

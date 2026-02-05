@@ -4,7 +4,7 @@ After=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=/home/ubuntu/.venvs/freegie-env/bin/python3 -m freegie.tray
+ExecStart=@PYTHON@ -m freegie.tray
 Restart=on-failure
 RestartSec=3
 

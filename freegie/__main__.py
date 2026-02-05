@@ -78,6 +78,7 @@ def _run_daemon(args):
         format="%(asctime)s %(name)-25s %(levelname)-7s %(message)s",
         datefmt="%H:%M:%S",
     )
+    logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
 
     log.info("Freegie v0.1.0 starting")
     log.info("Charge max: %d%%, charge min: %d%%, PD mode: %d",

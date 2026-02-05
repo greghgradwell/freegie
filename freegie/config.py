@@ -1,14 +1,14 @@
-"""Configuration loading from TOML files, with persistent user state."""
+"""Configuration loading from JSON files, with persistent user state."""
 
+import json
 import logging
-import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
 log = logging.getLogger(__name__)
-_USER_CONFIG = Path.home() / ".config" / "freegie" / "config.toml"
-_SYSTEM_CONFIG = Path("/etc/freegie/config.toml")
-_STATE_FILE = Path.home() / ".config" / "freegie" / "state.toml"
+_USER_CONFIG = Path.home() / ".config" / "freegie" / "config.json"
+_SYSTEM_CONFIG = Path("/etc/freegie/config.json")
+_STATE_FILE = Path.home() / ".config" / "freegie" / "state.json"
 
 
 @dataclass
@@ -61,8 +61,7 @@ def load_config(path: Path | None = None) -> Config:
     for candidate in candidates:
         if candidate.is_file():
             log.info("Loading config from %s", candidate)
-            raw = candidate.read_bytes()
-            data = tomllib.loads(raw.decode())
+            data = json.loads(candidate.read_text())
             return _parse(data)
 
     log.info("No config file found, using defaults")
@@ -86,8 +85,8 @@ def load_state(config: Config, path: Path = _STATE_FILE) -> Config:
         return config
 
     try:
-        data = tomllib.loads(path.read_bytes().decode())
-    except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError) as e:
+        data = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as e:
         log.warning("Failed to read state file %s: %s", path, e)
         return config
 
@@ -112,9 +111,9 @@ def load_state(config: Config, path: Path = _STATE_FILE) -> Config:
 
 def save_state(charge_max: int, charge_min: int, telemetry_interval: int = 30, path: Path = _STATE_FILE):
     path.parent.mkdir(parents=True, exist_ok=True)
-    content = (
-        f"charge_max = {charge_max}\n"
-        f"charge_min = {charge_min}\n"
-        f"telemetry_interval = {telemetry_interval}\n"
-    )
-    path.write_text(content)
+    data = {
+        "charge_max": charge_max,
+        "charge_min": charge_min,
+        "telemetry_interval": telemetry_interval,
+    }
+    path.write_text(json.dumps(data, indent=2) + "\n")

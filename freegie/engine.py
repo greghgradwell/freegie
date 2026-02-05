@@ -170,16 +170,14 @@ class ChargeEngine:
             self._charging = True
             await asyncio.sleep(PD_RELAY_ON_DELAY)
 
-            # Configure PD
+            # Configure PD mode and wait for renegotiation
             try:
                 await self._ble.send_command(CMD_ISPD)
             except (TimeoutError, ConnectionError) as e:
                 log.debug("ISPD query failed: %s", e)
             cmd = CMD_PD_MODE_2 if self._config.pd_mode == 2 else CMD_PD_MODE_1
             await self._ble.send_command(cmd)
-            resp = await self._ble.send_command(CMD_POWER_ON)
-            if not parse_power_state(resp):
-                raise ConnectionError("CMD_POWER_ON but device reports OFF")
+            await asyncio.sleep(2.0)  # Allow time for PD renegotiation
 
             # Confirm PD is active
             if await self._confirm_pd_active():
@@ -392,7 +390,7 @@ class ChargeEngine:
 
     async def _keepalive_loop(self):
         log.info("BLE keep-alive started (every 1.5s, telemetry every %ds)", self._config.telemetry_interval)
-        ticks_per_telemetry = max(1, self._config.telemetry_interval // 1.5)
+        ticks_per_telemetry = max(1, int(self._config.telemetry_interval / 1.5))
         tick = 0
         try:
             while True:

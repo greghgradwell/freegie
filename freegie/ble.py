@@ -110,8 +110,7 @@ class BLEManager:
         )
 
         try:
-            async with asyncio.timeout(_CONNECT_TIMEOUT_S):
-                await client.connect()
+            await asyncio.wait_for(client.connect(), timeout=_CONNECT_TIMEOUT_S)
         except asyncio.TimeoutError:
             log.error("Connection timed out after %.0fs", _CONNECT_TIMEOUT_S)
             try:

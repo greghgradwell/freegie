@@ -205,3 +205,8 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Generated files (from .in templates)
+systemd/freegie.service
+systemd/freegie-tray.service
+freegie-tray.desktop

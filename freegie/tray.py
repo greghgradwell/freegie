@@ -2,7 +2,6 @@
 
 import json
 import logging
-import subprocess
 import threading
 import time
 import webbrowser
@@ -66,17 +65,6 @@ def _build_icon(battery_percent: int | None, phase: str, is_charging: bool) -> I
     return img
 
 
-def _send_notification(title: str, body: str):
-    try:
-        subprocess.Popen(
-            ["notify-send", "-a", "Freegie", title, body],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-    except FileNotFoundError:
-        log.debug("notify-send not available")
-
-
 def run_tray(daemon_url: str = DEFAULT_DAEMON_URL):
     import pystray
 
@@ -135,6 +123,8 @@ def run_tray(daemon_url: str = DEFAULT_DAEMON_URL):
 
     def updater():
         nonlocal last_phase
+        last_pct = None
+        last_charging = None
         while icon.visible:
             status = _fetch_status(daemon_url)
             if status:
@@ -142,20 +132,18 @@ def run_tray(daemon_url: str = DEFAULT_DAEMON_URL):
                 pct = status.get("battery_percent")
                 charging = status.get("is_charging", False)
 
-                icon.icon = _build_icon(pct, phase, charging)
-                icon.menu = build_menu()
-
-                if last_phase and phase != last_phase:
-                    if phase == "charging":
-                        _send_notification("Freegie", "Connected to Chargie")
-                    elif phase == "disconnected":
-                        _send_notification("Freegie", "Chargie disconnected")
-                    elif phase == "paused":
-                        _send_notification("Freegie", f"Charge limit reached ({pct}%)")
-
-                last_phase = phase
-            else:
+                # Only update icon when state changes
+                if pct != last_pct or phase != last_phase or charging != last_charging:
+                    icon.icon = _build_icon(pct, phase, charging)
+                    icon.menu = build_menu()
+                    last_pct = pct
+                    last_phase = phase
+                    last_charging = charging
+            elif last_phase != "idle":
                 icon.icon = _build_icon(None, "idle", False)
+                last_phase = "idle"
+                last_pct = None
+                last_charging = None
 
             time.sleep(POLL_INTERVAL_S)
 
