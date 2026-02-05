@@ -1,15 +1,16 @@
 :root {
-    --primary: #007AFF;
-    --success: #34C759;
-    --danger: #FF3B30;
-    --warning: #FF9500;
-    --bg: #1C1C1E;
-    --surface: #2C2C2E;
-    --surface-hover: #3A3A3C;
-    --text: #FFFFFF;
-    --text-secondary: #8E8E93;
-    --border: #48484A;
-    --ring-bg: #3A3A3C;
+    /* Colorblind-friendly palette (blue/orange safe, slate theme) */
+    --primary: #0EA5E9;       /* Sky 500 - main actions */
+    --success: #14B8A6;       /* Teal 500 - connected/active (distinct from primary) */
+    --danger: #F97316;        /* Orange 500 - errors (not red, visible to all) */
+    --warning: #FBBF24;       /* Amber 400 - paused/warning */
+    --bg: #0F172A;            /* Slate 900 */
+    --surface: #1E293B;       /* Slate 800 */
+    --surface-hover: #334155; /* Slate 700 */
+    --text: #F8FAFC;          /* Slate 50 */
+    --text-secondary: #94A3B8;/* Slate 400 */
+    --border: #475569;        /* Slate 600 */
+    --ring-bg: #334155;       /* Slate 700 */
     --radius: 12px;
 }
 
@@ -51,26 +52,30 @@ header h1 {
     color: var(--text-secondary);
 }
 
-.phase-badge.charging,
-.phase-badge.paused {
-    background: rgba(52, 199, 89, 0.15);
+.phase-badge.charging {
+    background: rgba(20, 184, 166, 0.15);
     color: var(--success);
+}
+
+.phase-badge.paused {
+    background: rgba(251, 191, 36, 0.15);
+    color: var(--warning);
 }
 
 .phase-badge.scanning,
 .phase-badge.connecting,
 .phase-badge.verifying {
-    background: rgba(0, 122, 255, 0.15);
+    background: rgba(14, 165, 233, 0.15);
     color: var(--primary);
 }
 
 .phase-badge.reconnecting {
-    background: rgba(255, 149, 0, 0.15);
+    background: rgba(251, 191, 36, 0.15);
     color: var(--warning);
 }
 
 .phase-badge.disconnected {
-    background: rgba(255, 59, 48, 0.15);
+    background: rgba(249, 115, 22, 0.15);
     color: var(--danger);
 }
 
