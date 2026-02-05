@@ -15,6 +15,16 @@ Freegie connects to your Chargie device via Bluetooth Low Energy and automatical
 - CLI for scripting and automation
 - Runs as a systemd service
 
+## Screenshots
+
+**Web UI** — Monitor battery status and adjust charge limits
+
+![Web UI](assets/UI.png)
+
+**System Tray** — Quick access from the desktop
+
+![System Tray](assets/system-tray.png)
+
 ## Requirements
 
 - Linux (tested on Ubuntu 22.04+)
