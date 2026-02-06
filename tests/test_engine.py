@@ -109,17 +109,23 @@ def test_update_config_rejects_min_above_max(engine):
 def test_update_config_persists_charge_limits(engine, _no_save_state):
     mock_save = _no_save_state
     engine.update_config(charge_max=90)
-    mock_save.assert_called_once_with(90, 75, 30)
+    mock_save.assert_called_once_with(90, 75, 30, 2)
 
     mock_save.reset_mock()
     engine.update_config(charge_min=60)
-    mock_save.assert_called_once_with(90, 60, 30)
+    mock_save.assert_called_once_with(90, 60, 30, 2)
 
 
 def test_update_config_persists_telemetry_interval(engine, _no_save_state):
     mock_save = _no_save_state
     engine.update_config(telemetry_interval=10)
-    mock_save.assert_called_once_with(80, 75, 10)
+    mock_save.assert_called_once_with(80, 75, 10, 2)
+
+
+def test_update_config_persists_pd_mode(engine, _no_save_state):
+    mock_save = _no_save_state
+    engine.update_config(pd_mode=1)
+    mock_save.assert_called_once_with(80, 75, 30, 1)
 
 
 def test_update_config_skips_save_when_unchanged(engine, _no_save_state):

@@ -139,7 +139,7 @@ function updatePhase(s) {
 
     var badge = document.getElementById("phase-badge");
     var phase = s.phase || "idle";
-    badge.textContent = phase;
+    badge.textContent = phase.replace(/_/g, " ");
     badge.className = "phase-badge " + phase;
 
     var dot = document.getElementById("status-dot");
@@ -155,6 +155,9 @@ function updatePhase(s) {
         } else if (s.override === "off") {
             label = "Force Off";
         }
+    } else if (phase === "negotiating_charge") {
+        dotClass = "active";
+        label = "Negotiating Charge";
     } else if (phase === "scanning" || phase === "connecting" || phase === "verifying") {
         dotClass = "active";
     } else if (phase === "reconnecting") {
@@ -218,7 +221,7 @@ function updateControls(s) {
 
     // Override row
     var ovrRow = document.getElementById("override-row");
-    var isConnected = (s.phase === "charging" || s.phase === "paused");
+    var isConnected = (s.phase === "charging" || s.phase === "paused" || s.phase === "negotiating_charge");
     ovrRow.style.display = isConnected ? "" : "none";
 
     var ovrOn = document.getElementById("ovr-on");

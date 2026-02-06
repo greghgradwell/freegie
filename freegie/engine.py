@@ -40,8 +40,9 @@ class Phase(Enum):
     SCANNING = auto()
     CONNECTING = auto()
     VERIFYING = auto()
+    NEGOTIATING_CHARGE = auto()  # PD confirmed, waiting for laptop to accept charge
     CHARGING = auto()
-    PAUSED = auto()       # Charge limit reached, power cut
+    PAUSED = auto()              # Charge limit reached, power cut
     DISCONNECTED = auto()
     RECONNECTING = auto()
 
@@ -64,6 +65,7 @@ class ChargeEngine:
         self._reconnect_delay: int = 0
         self._stopped: bool = False
         self._on_update: list = []
+        self._transition_event = asyncio.Event()
         self._chart_history: deque[tuple[float, int, bool, int, int]] = deque(maxlen=2400)
         self._chart_last_percent: int | None = None
 
@@ -100,6 +102,20 @@ class ChargeEngine:
     def on_update(self, callback):
         self._on_update.append(callback)
 
+    def _background(self, coro):
+        task = asyncio.create_task(coro)
+        task.add_done_callback(self._on_task_done)
+        return task
+
+    @staticmethod
+    def _on_task_done(task: asyncio.Task):
+        try:
+            task.result()
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            log.exception("Background task failed")
+
     def update_config(
         self,
         charge_max: int | None = None,
@@ -110,6 +126,7 @@ class ChargeEngine:
         old_max = self._config.charge_max
         old_min = self._config.charge_min
         old_telemetry = self._config.telemetry_interval
+        old_pd = self._config.pd_mode
         self._config = ChargeConfig(
             charge_max=charge_max if charge_max is not None else self._config.charge_max,
             charge_min=charge_min if charge_min is not None else self._config.charge_min,
@@ -122,10 +139,11 @@ class ChargeEngine:
                  self._config.pd_mode, self._config.telemetry_interval)
         changed = (self._config.charge_max != old_max
                    or self._config.charge_min != old_min
-                   or self._config.telemetry_interval != old_telemetry)
+                   or self._config.telemetry_interval != old_telemetry
+                   or self._config.pd_mode != old_pd)
         if changed:
             save_state(self._config.charge_max, self._config.charge_min,
-                       self._config.telemetry_interval)
+                       self._config.telemetry_interval, self._config.pd_mode)
         self._notify()
 
     async def set_override(self, mode: str):
@@ -138,13 +156,14 @@ class ChargeEngine:
             if percent is not None:
                 await self._enforce_limit(percent)
         else:
-            if self._phase not in (Phase.CHARGING, Phase.PAUSED):
+            if self._phase not in (Phase.CHARGING, Phase.PAUSED, Phase.NEGOTIATING_CHARGE):
                 raise ValueError("Cannot override: not connected to device")
             if mode == "on":
                 self._override = "on"
                 log.info("Override: forcing charge ON")
                 await self._power_on()
-                self._set_phase(Phase.CHARGING)
+                self._set_phase(Phase.NEGOTIATING_CHARGE)
+                self._background(self._await_sysfs_charging())
             else:
                 self._override = "off"
                 log.info("Override: forcing charge OFF")
@@ -219,6 +238,11 @@ class ChargeEngine:
             await asyncio.sleep(1.0)
         log.warning("sysfs status did not confirm charging=%s within %.0fs", expected_charging, timeout)
 
+    async def _await_sysfs_charging(self):
+        await self._confirm_sysfs_charging(True)
+        if self._phase == Phase.NEGOTIATING_CHARGE:
+            self._set_phase(Phase.CHARGING)
+
     # --- Lifecycle ---
 
     async def start(self):
@@ -254,8 +278,9 @@ class ChargeEngine:
             self._set_phase(Phase.IDLE)
             return
 
-        self._set_phase(Phase.CHARGING)
+        self._set_phase(Phase.NEGOTIATING_CHARGE)
         self._start_polling()
+        self._background(self._await_sysfs_charging())
 
     async def stop(self):
         self._stopped = True
@@ -350,8 +375,9 @@ class ChargeEngine:
                     await self._ble.disconnect()
                     continue
 
-                self._set_phase(Phase.CHARGING)
+                self._set_phase(Phase.NEGOTIATING_CHARGE)
                 self._start_polling()
+                self._background(self._await_sysfs_charging())
                 log.info("Reconnected successfully on attempt %d", self._reconnect_attempt)
                 self._reconnect_task = None
                 self._reconnect_attempt = 0
@@ -388,22 +414,36 @@ class ChargeEngine:
         except asyncio.CancelledError:
             log.info("sysfs polling stopped")
 
+    _TRANSITION_POLL_S = 1.5
+    _TRANSITION_FAST_DURATION = 15
+
     async def _keepalive_loop(self):
-        log.info("BLE keep-alive started (every 1.5s, telemetry every %ds)", self._config.telemetry_interval)
-        ticks_per_telemetry = max(1, int(self._config.telemetry_interval / 1.5))
-        tick = 0
+        interval = self._config.telemetry_interval
+        log.info("BLE keep-alive started (every %ds, fast %.1fs on transitions)",
+                 interval, self._TRANSITION_POLL_S)
+        fast_until = 0.0
         try:
             while True:
                 try:
                     stat_raw = await self._ble.send_command(CMD_STAT)
-                    tick += 1
-                    if tick >= ticks_per_telemetry:
-                        self._telemetry = parse_telemetry(stat_raw)
-                        self._notify()
-                        tick = 0
+                    self._telemetry = parse_telemetry(stat_raw)
+                    self._notify()
                 except TimeoutError:
                     log.debug("STAT timeout (non-fatal)")
-                await asyncio.sleep(1.5)
+
+                now = asyncio.get_event_loop().time()
+                if now < fast_until:
+                    await asyncio.sleep(self._TRANSITION_POLL_S)
+                else:
+                    self._transition_event.clear()
+                    try:
+                        await asyncio.wait_for(
+                            self._transition_event.wait(), timeout=interval
+                        )
+                        fast_until = asyncio.get_event_loop().time() + self._TRANSITION_FAST_DURATION
+                        log.debug("Transition detected, fast-polling for %ds", self._TRANSITION_FAST_DURATION)
+                    except asyncio.TimeoutError:
+                        pass
         except asyncio.CancelledError:
             log.info("BLE keep-alive stopped")
         except ConnectionError:
@@ -411,7 +451,7 @@ class ChargeEngine:
             self._set_phase(Phase.DISCONNECTED)
 
     async def poll_telemetry(self):
-        if self._phase not in (Phase.CHARGING, Phase.PAUSED):
+        if self._phase not in self._ACTIVE_PHASES:
             raise ConnectionError("Cannot poll: not connected to device")
         stat_raw = await self._ble.send_command(CMD_STAT)
         self._telemetry = parse_telemetry(stat_raw)
@@ -426,26 +466,31 @@ class ChargeEngine:
             log.info("Battery at %d%% >= max %d%%, cutting power", percent, self._config.charge_max)
             await self._power_off()
             self._set_phase(Phase.PAUSED)
-            asyncio.create_task(self._confirm_sysfs_charging(False))
+            self._background(self._confirm_sysfs_charging(False))
 
         elif self._phase == Phase.PAUSED and percent <= self._config.charge_min:
             log.info("Battery at %d%% <= min %d%%, restoring power", percent, self._config.charge_min)
             await self._power_on()
-            self._set_phase(Phase.CHARGING)
-            asyncio.create_task(self._confirm_sysfs_charging(True))
+            self._set_phase(Phase.NEGOTIATING_CHARGE)
+            self._background(self._await_sysfs_charging())
 
         elif self._phase == Phase.CHARGING and not self._charging:
             log.info("CHARGING but not charging — safety net, restoring power")
             await self._power_on()
-            asyncio.create_task(self._confirm_sysfs_charging(True))
+            self._set_phase(Phase.NEGOTIATING_CHARGE)
+            self._background(self._await_sysfs_charging())
 
     # --- State management ---
+
+    _ACTIVE_PHASES = frozenset({Phase.NEGOTIATING_CHARGE, Phase.CHARGING, Phase.PAUSED})
 
     def _set_phase(self, new_phase: Phase):
         old = self._phase
         self._phase = new_phase
         if old != new_phase:
             log.info("Engine phase: %s -> %s", old.name, new_phase.name)
+            if old in self._ACTIVE_PHASES and new_phase in self._ACTIVE_PHASES:
+                self._transition_event.set()
             self._notify()
 
     def _handle_ble_state(self, ble_state: ConnectionState):

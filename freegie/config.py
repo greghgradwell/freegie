@@ -93,12 +93,13 @@ def load_state(config: Config, path: Path = _STATE_FILE) -> Config:
     charge_min = data.get("charge_min", config.charge.charge_min)
     charge_max = data.get("charge_max", config.charge.charge_max)
     telemetry_interval = data.get("telemetry_interval", config.charge.telemetry_interval)
+    pd_mode = data.get("pd_mode", config.charge.pd_mode)
 
     try:
         config.charge = ChargeConfig(
             charge_max=charge_max,
             charge_min=charge_min,
-            pd_mode=config.charge.pd_mode,
+            pd_mode=pd_mode,
             poll_interval=config.charge.poll_interval,
             telemetry_interval=telemetry_interval,
             auto_reconnect=config.charge.auto_reconnect,
@@ -109,11 +110,12 @@ def load_state(config: Config, path: Path = _STATE_FILE) -> Config:
     return config
 
 
-def save_state(charge_max: int, charge_min: int, telemetry_interval: int = 30, path: Path = _STATE_FILE):
+def save_state(charge_max: int, charge_min: int, telemetry_interval: int = 30, pd_mode: int = 2, path: Path = _STATE_FILE):
     path.parent.mkdir(parents=True, exist_ok=True)
     data = {
         "charge_max": charge_max,
         "charge_min": charge_min,
         "telemetry_interval": telemetry_interval,
+        "pd_mode": pd_mode,
     }
     path.write_text(json.dumps(data, indent=2) + "\n")
