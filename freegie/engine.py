@@ -12,8 +12,9 @@ from freegie.config import ChargeConfig, save_state
 from freegie.protocol import (
     CMD_CAPA,
     CMD_FWVR,
+    CMD_HALF_OFF,
+    CMD_HALF_ON,
     CMD_HWVR,
-    CMD_ISPD,
     CMD_PD_MODE_1,
     CMD_PD_MODE_2,
     CMD_POWER_OFF,
@@ -21,7 +22,6 @@ from freegie.protocol import (
     CMD_STAT,
     PD_CONFIRM_TIMEOUT,
     PD_MIN_VOLTS,
-    PD_RELAY_OFF_DELAY,
     PD_RELAY_ON_DELAY,
     DeviceInfo,
     Telemetry,
@@ -144,6 +144,8 @@ class ChargeEngine:
         if changed:
             save_state(self._config.charge_max, self._config.charge_min,
                        self._config.telemetry_interval, self._config.pd_mode)
+        if self._config.pd_mode != old_pd and self._phase in (Phase.CHARGING, Phase.NEGOTIATING_CHARGE):
+            self._background(self._apply_pd_mode())
         self._notify()
 
     async def set_override(self, mode: str):
@@ -173,38 +175,38 @@ class ChargeEngine:
 
     # --- Power helpers ---
 
-    async def _power_on(self):
+    async def _initiate_pd(self):
         for attempt in range(3):
-            # Clean slate: power off first
-            resp = await self._ble.send_command(CMD_POWER_OFF)
-            if parse_power_state(resp):
-                raise ConnectionError("CMD_POWER_OFF but device reports ON")
-            self._charging = False
-            await asyncio.sleep(PD_RELAY_OFF_DELAY)
+            if attempt > 0:
+                # Chargie retry pattern: reset PD state with PDMO1, then re-trigger
+                log.info("Re-triggering PD negotiation (attempt %d)", attempt + 1)
+                await self._ble.send_command(CMD_PD_MODE_1)
+                await asyncio.sleep(1.0)
 
-            # Relay on
-            resp = await self._ble.send_command(CMD_POWER_ON)
-            if not parse_power_state(resp):
-                raise ConnectionError("CMD_POWER_ON but device reports OFF")
-            self._charging = True
-            await asyncio.sleep(PD_RELAY_ON_DELAY)
+            if self._config.pd_mode == 1:
+                # Half PD: PDMO2 then HALF1
+                await self._ble.send_command(CMD_PD_MODE_2)
+                await self._ble.send_command(CMD_HALF_ON)
+            else:
+                # Full PD: HALF0 then PDMO2
+                await self._ble.send_command(CMD_HALF_OFF)
+                await self._ble.send_command(CMD_PD_MODE_2)
+            await asyncio.sleep(2.0)
 
-            # Configure PD mode and wait for renegotiation
-            try:
-                await self._ble.send_command(CMD_ISPD)
-            except (TimeoutError, ConnectionError) as e:
-                log.debug("ISPD query failed: %s", e)
-            cmd = CMD_PD_MODE_2 if self._config.pd_mode == 2 else CMD_PD_MODE_1
-            await self._ble.send_command(cmd)
-            await asyncio.sleep(2.0)  # Allow time for PD renegotiation
-
-            # Confirm PD is active
             if await self._confirm_pd_active():
-                log.info("Power on with PD mode %d (attempt %d)",
+                log.info("PD mode %d negotiated (attempt %d)",
                          self._config.pd_mode, attempt + 1)
                 return
-            log.warning("PD negotiation attempt %d failed, retrying", attempt + 1)
+            log.warning("PD negotiation attempt %d failed", attempt + 1)
         raise ConnectionError("PD negotiation failed after 3 attempts")
+
+    async def _power_on(self):
+        resp = await self._ble.send_command(CMD_POWER_ON)
+        if not parse_power_state(resp):
+            raise ConnectionError("CMD_POWER_ON but device reports OFF")
+        self._charging = True
+        await asyncio.sleep(PD_RELAY_ON_DELAY)
+        await self._initiate_pd()
 
     async def _confirm_pd_active(self, timeout: float = PD_CONFIRM_TIMEOUT) -> bool:
         deadline = asyncio.get_running_loop().time() + timeout
@@ -221,6 +223,15 @@ class ChargeEngine:
                 log.warning("STAT poll during PD confirm failed: %s", e)
             await asyncio.sleep(1.0)
         return False
+
+    async def _apply_pd_mode(self):
+        log.info("PD mode changed to %d, re-negotiating", self._config.pd_mode)
+        try:
+            await self._initiate_pd()
+            self._set_phase(Phase.NEGOTIATING_CHARGE)
+            await self._await_sysfs_charging()
+        except (TimeoutError, ConnectionError) as e:
+            log.error("PD renegotiation failed: %s", e)
 
     async def _power_off(self):
         resp = await self._ble.send_command(CMD_POWER_OFF)
@@ -270,10 +281,11 @@ class ChargeEngine:
 
         await self._query_device_info()
 
+        # Verify left relay ON; initiate PD without power cycling
         try:
-            await self._power_on()
+            await self._initiate_pd()
         except (TimeoutError, ConnectionError) as e:
-            log.error("PD mode configuration failed: %s", e)
+            log.error("PD negotiation failed: %s", e)
             await self._ble.disconnect()
             self._set_phase(Phase.IDLE)
             return
@@ -369,9 +381,9 @@ class ChargeEngine:
                 await self._query_device_info()
 
                 try:
-                    await self._power_on()
+                    await self._initiate_pd()
                 except (TimeoutError, ConnectionError) as e:
-                    log.warning("PD mode failed on reconnect: %s", e)
+                    log.warning("PD negotiation failed on reconnect: %s", e)
                     await self._ble.disconnect()
                     continue
 
@@ -470,13 +482,23 @@ class ChargeEngine:
 
         elif self._phase == Phase.PAUSED and percent <= self._config.charge_min:
             log.info("Battery at %d%% <= min %d%%, restoring power", percent, self._config.charge_min)
-            await self._power_on()
+            try:
+                await self._power_on()
+            except (TimeoutError, ConnectionError) as e:
+                log.error("Failed to restore power: %s — disconnecting", e)
+                await self._ble.disconnect()
+                return
             self._set_phase(Phase.NEGOTIATING_CHARGE)
             self._background(self._await_sysfs_charging())
 
         elif self._phase == Phase.CHARGING and not self._charging:
             log.info("CHARGING but not charging — safety net, restoring power")
-            await self._power_on()
+            try:
+                await self._power_on()
+            except (TimeoutError, ConnectionError) as e:
+                log.error("Safety-net power restore failed: %s — disconnecting", e)
+                await self._ble.disconnect()
+                return
             self._set_phase(Phase.NEGOTIATING_CHARGE)
             self._background(self._await_sysfs_charging())
 

@@ -63,6 +63,8 @@ def test_scan_filter_handles_none_name():
     ("AT+PIO21", "PIO2"),
     ("AT+PDMO1", "PDMO"),
     ("AT+PDMO2", "PDMO"),
+    ("AT+HALF0", "HALF"),
+    ("AT+HALF1", "HALF"),
 ])
 def test_expected_response_key(command, expected):
     assert _expected_response_key(command) == expected

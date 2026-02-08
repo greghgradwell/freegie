@@ -10,13 +10,13 @@ CMD_STAT = "AT+STAT?"
 CMD_CAPA = "AT+CAPA?"
 CMD_FWVR = "AT+FWVR?"
 CMD_HWVR = "AT+HWVR?"
-CMD_ISPD = "AT+ISPD?"
-
 CMD_POWER_OFF = "AT+PIO20"  # Cut USB-C power (stop charging)
 CMD_POWER_ON = "AT+PIO21"   # Restore USB-C power (start charging)
 
-CMD_PD_MODE_1 = "AT+PDMO1"  # Half PD — reduced voltage/wattage
-CMD_PD_MODE_2 = "AT+PDMO2"  # Full PD — maximum negotiated voltage/wattage
+CMD_PD_MODE_1 = "AT+PDMO1"  # Basic 5V — no PD negotiation (also used to reset PD state)
+CMD_PD_MODE_2 = "AT+PDMO2"  # Full PD — trigger PD negotiation for maximum wattage
+CMD_HALF_OFF = "AT+HALF0"   # Disable half-power mode
+CMD_HALF_ON = "AT+HALF1"    # Enable half-power mode (Half PD = PDMO2 + HALF1)
 
 
 CAPA_BIT_PD = 0       # Supports USB Power Delivery
@@ -24,7 +24,6 @@ CAPA_BIT_FET2 = 1     # Has second FET (dual-channel)
 CAPA_BIT_AUTO = 2     # Supports auto mode
 
 PD_MIN_VOLTS = 7.0          # Voltage must exceed base USB-C 5V to confirm PD
-PD_RELAY_OFF_DELAY = 2.0    # Seconds to wait after relay off for USB-C disconnect
 PD_RELAY_ON_DELAY = 4.0     # Seconds to wait after relay on for USB-C link to stabilize
 PD_CONFIRM_TIMEOUT = 15.0   # Seconds to poll STAT waiting for PD negotiation
 

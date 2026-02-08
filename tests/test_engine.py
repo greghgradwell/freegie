@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -16,8 +17,9 @@ def _mock_send_command(cmd):
         "AT+PIO21": "OK+PIO2:1",
         "AT+PDMO1": "OK+PDMO:1",
         "AT+PDMO2": "OK+PDMO:2",
+        "AT+HALF0": "OK+HALF:0",
+        "AT+HALF1": "OK+HALF:1",
         "AT+STAT?": "OK+STAT:2.00/15.00",
-        "AT+ISPD?": "OK+ISPD:1",
         "AT+CAPA?": "OK+CAPA:7",
         "AT+FWVR?": "OK+FWVR:1.0",
         "AT+HWVR?": "OK+HWVR:2.0",
@@ -173,15 +175,59 @@ async def test_enforce_limit_skipped_during_override(engine, ble):
     assert engine.phase == Phase.CHARGING
 
 
+@pytest.mark.asyncio
+async def test_enforce_limit_disconnects_on_power_on_failure_from_paused(engine, ble):
+    engine._phase = Phase.PAUSED
+    engine._charging = False
+    ble.send_command = AsyncMock(side_effect=TimeoutError("no response"))
+
+    await engine._enforce_limit(74)
+
+    ble.disconnect.assert_awaited_once()
+    assert engine.phase == Phase.PAUSED
+
+
+@pytest.mark.asyncio
+async def test_enforce_limit_disconnects_on_safety_net_failure(engine, ble):
+    engine._phase = Phase.CHARGING
+    engine._charging = False
+    ble.send_command = AsyncMock(side_effect=ConnectionError("lost connection"))
+
+    await engine._enforce_limit(77)
+
+    ble.disconnect.assert_awaited_once()
+    assert engine.phase == Phase.CHARGING
+
+
+@pytest.mark.asyncio
+async def test_update_config_triggers_pd_renegotiation_when_charging(engine, ble):
+    engine._phase = Phase.CHARGING
+    engine.update_config(pd_mode=1)
+
+    await asyncio.sleep(0.1)
+
+    calls = [str(c) for c in ble.send_command.call_args_list]
+    assert any("HALF1" in c for c in calls)
+
+
+@pytest.mark.asyncio
+async def test_update_config_no_pd_renegotiation_when_idle(engine, ble):
+    engine._phase = Phase.IDLE
+    ble.send_command.reset_mock()
+
+    engine.update_config(pd_mode=1)
+
+    await asyncio.sleep(0.1)
+
+    ble.send_command.assert_not_awaited()
+
+
 # --- Error handling (tests our code's response to bad data, not device behavior) ---
 
 
 @pytest.mark.asyncio
 async def test_power_on_relay_verifies_response(engine, ble):
-    ble.send_command = AsyncMock(side_effect=[
-        "OK+PIO2:0",  # PIO20 off — OK
-        "OK+PIO2:0",  # PIO21 on — but reports OFF (bad!)
-    ])
+    ble.send_command = AsyncMock(return_value="OK+PIO2:0")  # PIO21 reports OFF (bad!)
     with pytest.raises(ConnectionError, match="CMD_POWER_ON but device reports OFF"):
         await engine._power_on()
 

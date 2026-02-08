@@ -220,7 +220,7 @@ class BLEManager:
                     cb(response)
 
 
-_STRIP_LAST_DIGIT = {"PIO20", "PIO21", "PDMO1", "PDMO2"}
+_STRIP_LAST_DIGIT = {"PIO20", "PIO21", "PDMO1", "PDMO2", "HALF0", "HALF1"}
 
 
 def _expected_response_key(command: str) -> str:
